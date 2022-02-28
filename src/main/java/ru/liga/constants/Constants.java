@@ -1,0 +1,17 @@
+package ru.liga.constants;
+
+public class Constants {
+    public static final String EUR_FILEPATH = "src/main/resources/EUR_F01_02_2002_T01_02_2022.csv";
+    public static final String TRY_FILEPATH = "src/main/resources/TRY_F01_02_2002_T01_02_2022.csv";
+    public static final String USD_FILEPATH = "src/main/resources/USD_F01_02_2002_T01_02_2022.csv";
+    public static final String TRY = "TRY";
+    public static final String USD = "USD";
+    public static final String EUR = "EUR";
+    public static final String TOMORROW = "tomorrow";
+    public static final String WEEK = "week";
+    public static final int PLACES = 4;
+    public static final int WEEK_PERIOD = 7;
+    public static final int ONE_DAY_PERIOD = 1;
+    public static final String RATE_COMMAND = "rate";
+    public static final String DATA_PROCESSING_EXCEPTION_MESSAGE = "resources information can't be processed";
+}
