@@ -7,8 +7,6 @@ import ru.liga.repositories.CurrencyRepository;
 import java.text.NumberFormat;
 import java.text.ParseException;
 import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
-import java.time.format.TextStyle;
 import java.util.Comparator;
 import java.util.LinkedList;
 import java.util.List;
@@ -28,56 +26,34 @@ public class ArithmeticAverageCurrencyServiceImpl implements CurrencyService {
     }
 
     /**
-     * @return new DaileCurrencyValue as a forecast for tomorrow
-     */
-    @Override
-    public DailyCurrency getTomorrowCurrencyForecast() {
-        LinkedList<DailyCurrency> currencyValues = getDailyCurrencyList(repository.getCurrencyStringsForPeriod(WEEK_PERIOD));
-        return getNextDayCurrencyForecast(currencyValues);
-    }
-
-    /**
+     * get forecast for the period
+     *
+     * @param currency - chosen currency
+     * @param period   - period
      * @return list of new DaileCurrencyValue objects as a forecast for the week
      */
     @Override
-    public List<DailyCurrency> getWeekCurrencyForecast() {
-        LinkedList<DailyCurrency> currencyValues = getDailyCurrencyList(repository.getCurrencyStringsForPeriod(WEEK_PERIOD));
-        for (int i = 0; i < WEEK_PERIOD; i++) {
-            DailyCurrency newDailyCurrency = getNextDayCurrencyForecast(currencyValues);
+    public List<DailyCurrency> getForecast(String currency, int period) {
+        String fileName = getFileName(currency);
+        if (fileName == null) {
+            System.out.println("this currency is absent in our forecaster");
+            return null;
+        }
+        LinkedList<DailyCurrency> currencyValues = getCurrencyList(repository.getCurrenciesForPeriod(fileName, WEEK_PERIOD));
+        for (int i = 0; i < period; i++) {
+            DailyCurrency newDailyCurrency = getDailyForecast(currencyValues);
             currencyValues.offer(newDailyCurrency);
             currencyValues.remove();
         }
         return currencyValues;
     }
 
-    /**
-     * @param dailyCurrency prints dailyCurrency into the console
-     */
-    @Override
-    public void printDailyCurrency(DailyCurrency dailyCurrency) {
-        StringBuilder sb = new StringBuilder();
-        sb.append(getRussianDayOfWeek(dailyCurrency.getDate()));
-        sb.append(" ");
-        sb.append(getStringFromDate(dailyCurrency.getDate()));
-        sb.append(" ");
-        sb.append(dailyCurrency.getValue());
-        System.out.println(sb);
-    }
-
-    /**
-     * @param currencyValues sorted by descending list of DailyCurrencyValue objects
-     * @return next day after the latest day of the list
-     */
-    private DailyCurrency getNextDayCurrencyForecast(LinkedList<DailyCurrency> currencyValues) {
+    private DailyCurrency getDailyForecast(LinkedList<DailyCurrency> currencyValues) {
         double nextDayValue = roundToPlaces(calculateAverageValue(currencyValues));
         LocalDate nextDay = currencyValues.getLast().getDate().plusDays(ONE_DAY_PERIOD);
         return new DailyCurrency(nextDay, nextDayValue);
     }
 
-    /**
-     * @param currencyValues sorted by descending list of DailyCurrencyValue objects
-     * @return average value of the currencyValues
-     */
     private double calculateAverageValue(List<DailyCurrency> currencyValues) {
         return currencyValues.stream()
                 .mapToDouble(DailyCurrency::getValue)
@@ -85,19 +61,15 @@ public class ArithmeticAverageCurrencyServiceImpl implements CurrencyService {
                 .orElseThrow(() -> new IllegalArgumentException(DATA_PROCESSING_EXCEPTION_MESSAGE));
     }
 
-    /**
-     * @param num
-     * @return number rounded to PLACES
-     */
     private Double roundToPlaces(Double num) {
         return Precision.round(num, PLACES);
     }
 
-    private LinkedList<DailyCurrency> getDailyCurrencyList(List<List<String>> stringListsList) {
+    private LinkedList<DailyCurrency> getCurrencyList(List<List<String>> stringListsList) {
         LinkedList<DailyCurrency> dailyCurrencyList = new LinkedList<>();
         for (List<String> stringList : stringListsList) {
             try {
-                dailyCurrencyList.add(mapIntoDailyCurrency(stringList));
+                dailyCurrencyList.add(mapToCurrency(stringList));
             } catch (IllegalArgumentException e) {
                 throw new IllegalArgumentException(DATA_PROCESSING_EXCEPTION_MESSAGE);
             }
@@ -106,31 +78,18 @@ public class ArithmeticAverageCurrencyServiceImpl implements CurrencyService {
         return dailyCurrencyList;
     }
 
-    /**
-     * @param dailyCurrencyStringList list of strings containing information about dailyCurrency
-     * @return DailyCurrency object
-     */
-    private DailyCurrency mapIntoDailyCurrency(List<String> dailyCurrencyStringList) {
-        LocalDate date = parseStringIntoLocalDate(dailyCurrencyStringList.get(0));
-        double value = getDoubleValueFromStringWithComma(dailyCurrencyStringList.get(1));
+    private DailyCurrency mapToCurrency(List<String> dailyCurrencyStringList) {
+        LocalDate date = parseString(dailyCurrencyStringList.get(0));
+        double value = getDoubleFromStringWithComma(dailyCurrencyStringList.get(1));
         return new DailyCurrency(date, value);
     }
 
-    /**
-     * @param stringDate date information from the file in String-format
-     * @return date information as a LocalDate object
-     */
-    private LocalDate parseStringIntoLocalDate(String stringDate) {
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd.MM.yyyy");
+    private LocalDate parseString(String stringDate) {
         return LocalDate.parse(stringDate, formatter);
     }
 
-    /**
-     * @param string
-     * @return double value
-     */
-    private double getDoubleValueFromStringWithComma(String string) {
-        NumberFormat format = NumberFormat.getInstance(Locale.getDefault());
+    private double getDoubleFromStringWithComma(String string) {
+        NumberFormat format = NumberFormat.getInstance(Locale.FRANCE);
         Number number = null;
         try {
             number = format.parse(string);
@@ -140,18 +99,34 @@ public class ArithmeticAverageCurrencyServiceImpl implements CurrencyService {
         return number.doubleValue();
     }
 
-    /**
-     * @return reduced day of week name in Russian language
-     */
-    private String getRussianDayOfWeek(LocalDate date) {
-        return date.getDayOfWeek().getDisplayName(TextStyle.SHORT, new Locale("ru", "RU"));
-    }
-
-    /**
-     * @return date in String-format(for the Console Output)
-     */
-    private String getStringFromDate(LocalDate date) {
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd.MM.yyyy");
-        return date.format(formatter);
+    private String getFileName(String currency) {
+        switch (currency) {
+            case USD:
+                return USD_FILEPATH;
+            case EUR:
+                return EUR_FILEPATH;
+            case TRY:
+                return TRY_FILEPATH;
+            default:
+                return null;
+        }
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

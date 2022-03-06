@@ -1,6 +1,9 @@
 package ru.liga.forms;
 
+import com.opencsv.bean.CsvBindByName;
+
 import java.time.LocalDate;
+import java.util.Objects;
 
 
 /**
@@ -21,5 +24,26 @@ public class DailyCurrency {
 
     public double getValue() {
         return value;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        DailyCurrency that = (DailyCurrency) o;
+        return Double.compare(that.value, value) == 0 && Objects.equals(date, that.date);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(date, value);
+    }
+
+    @Override
+    public String toString() {
+        return "DailyCurrency{" +
+                "date=" + date +
+                ", value=" + value +
+                '}';
     }
 }

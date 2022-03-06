@@ -2,10 +2,10 @@ package ru.liga.controllers;
 
 import ru.liga.forms.DailyCurrency;
 import ru.liga.repositories.CSVFileCurrencyRepositoryImpl;
-import ru.liga.repositories.CurrencyRepository;
 import ru.liga.services.ArithmeticAverageCurrencyServiceImpl;
 import ru.liga.services.CurrencyService;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Scanner;
 
@@ -13,17 +13,20 @@ import static ru.liga.constants.Constants.*;
 
 public class CurrencyController {
 
-    private static CurrencyService currencyService;
-    private static String currency;
-    private static String period;
+    private final CurrencyService currencyService;
+    private String currency;
+    private String period;
+    private final Scanner scanner;
 
-    /**
-     * starts App
-     */
-    public static void start() {
+    public CurrencyController() {
+        this.currencyService = new ArithmeticAverageCurrencyServiceImpl(new CSVFileCurrencyRepositoryImpl());
+        this.scanner = new Scanner(System.in);
+    }
+
+    public void start() {
         while (true) {
-            System.out.println("enter your query or exit");
-            String consoleLine = getConsoleInput();
+            displayMenu();
+            String consoleLine = scanner.nextLine();
             if (consoleLine.equals("exit")) {
                 break;
             }
@@ -31,12 +34,8 @@ public class CurrencyController {
                 System.out.println("Your input is not correct");
                 continue;
             }
-            currencyService = getCurrencyService(currency);
-            if (currencyService == null) {
-                continue;
-            }
             try {
-                displayResult(period, currencyService);
+                displayResult(period, currency);
             } catch (IllegalArgumentException e) {
                 System.out.println(e.getMessage());
             }
@@ -44,40 +43,43 @@ public class CurrencyController {
     }
 
     /**
-     * displays the result of the query
+     * prints dailyCurrency into the console
      *
-     * @param period          chosen period of forecast(tomorrow or week)
-     * @param currencyService used CurrencyService Implementation
+     * @param dailyCurrency - currency for one day
      */
-    private static void displayResult(String period, CurrencyService currencyService) {
+    public void printDailyCurrency(DailyCurrency dailyCurrency) {
+        StringBuilder sb = new StringBuilder();
+        sb.append(getStringFromDate(dailyCurrency.getDate()));
+        sb.append(" ");
+        sb.append(dailyCurrency.getValue());
+        System.out.println(sb);
+    }
+
+    private void displayMenu() {
+        System.out.println("enter your query like:");
+        System.out.println("rate {currency} {period}");
+        System.out.println("options for currency:");
+        System.out.println(USD + " " + EUR + " " + TRY);
+        System.out.println("options for period");
+        System.out.println(TOMORROW + " " + WEEK);
+    }
+
+
+    private synchronized void displayResult(String period, String currency) {
         switch (period) {
             case TOMORROW:
-                currencyService.printDailyCurrency(currencyService.getTomorrowCurrencyForecast());
+                printList(currencyService.getForecast(currency, ONE_DAY_PERIOD));
                 break;
             case WEEK:
-                printList(currencyService.getWeekCurrencyForecast());
+                printList(currencyService.getForecast(currency, WEEK_PERIOD));
                 break;
             default:
                 System.out.println("entered period is not available in App");
         }
+        System.out.println();
     }
 
-    /**
-     * gets a query from user
-     *
-     * @return query in String-format
-     */
-    private static String getConsoleInput() {
-        Scanner scanner = new Scanner(System.in);
-        return scanner.nextLine();
-    }
-
-
-    /**
-     * @param line user line from console
-     * @return boolean about correctness of input and invokes currency and period setting
-     */
-    private static boolean inputIsCorrect(String line) {
+    private boolean inputIsCorrect(String line) {
         String[] inputStringArray = line.split(" ");
         if (inputStringArray.length == 3 && inputStringArray[0].equals(RATE_COMMAND)) {
             setCurrencyAndPeriod(inputStringArray);
@@ -86,46 +88,22 @@ public class CurrencyController {
         return false;
     }
 
-
-    /**
-     * @param inputStringArray gets cuurency and period from strings array
-     */
-    private static void setCurrencyAndPeriod(String[] inputStringArray) {
+    private void setCurrencyAndPeriod(String[] inputStringArray) {
         currency = inputStringArray[1];
         period = inputStringArray[2];
     }
 
-    /**
-     * @param currency chosen currency
-     * @return currency sevice depending on the chosen currency
-     */
-    private static CurrencyService getCurrencyService(String currency) {
-        CurrencyRepository repository = null;
-        switch (currency) {
-            case TRY:
-                repository = new CSVFileCurrencyRepositoryImpl(TRY_FILEPATH);
-                break;
-            case EUR:
-                repository = new CSVFileCurrencyRepositoryImpl(EUR_FILEPATH);
-                break;
-            case USD:
-                repository = new CSVFileCurrencyRepositoryImpl(USD_FILEPATH);
-                break;
-            default:
-                System.out.println("Chosen currency is absent in the App or doesn't exist!");
-                return null;
+
+    private void printList(List<DailyCurrency> dailyCurrencies) {
+        if (dailyCurrencies == null) {
+            return;
         }
-        return new ArithmeticAverageCurrencyServiceImpl(repository);
+        for (DailyCurrency dailyCurrency : dailyCurrencies) {
+            printDailyCurrency(dailyCurrency);
+        }
     }
 
-    /**
-     * prints list of DailyCurrency objects
-     *
-     * @param dailyCurrencies list
-     */
-    private static void printList(List<DailyCurrency> dailyCurrencies) {
-        for (DailyCurrency dailyCurrency : dailyCurrencies) {
-            currencyService.printDailyCurrency(dailyCurrency);
-        }
+    private String getStringFromDate(LocalDate date) {
+        return date.format(formatter);
     }
 }
